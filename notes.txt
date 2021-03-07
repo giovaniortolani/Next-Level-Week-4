@@ -1,0 +1,90 @@
+// Aula 1
+
+Interfaces do express ficam em outra dependência. Caso tentemos usar qualquer método
+de app aparecerá um warning.
+Fizemos (yarn add @types/express -D) para instalar. Além disso, foi instalada como
+dependência de desenvolvimento (-D), pois ela não será necessária em produção.
+
+Essa sintaxe de importação não é entendida pelo Node.
+Foi necessário instalar o TS (yarn add typescript -D) e também inicializá-lo dentro
+da aplicação (yarn tsc --init). Esse último comando cria um arquivo tsconfig.json com algumas
+configurações mutáveis do TS.
+
+Por fim, adicionamos a dependẽncia que converte o código TS para JS (yarn add ts-node-dev -D) em tempo
+de execução, de modo que não precisamos ficar fazendo a transpilação toda hora.
+Também foi criado uma regra no package.json para rodá-lo em ambiente de desenvolvimento (scripts dev).
+--transpile-only: não checa erros de tipagem em ambiente de dev, o própŕio VSCode já serve.
+--ignore-watch node_modules: ignora tudo o que estiver ocorrendo no node_modules.
+
+// Escuta requisições GET para a rota /users.
+app.get('/users')
+
+É possível utilizar as mesmas rotas (nesse caso, /users) desde que os métodos HTTP sejam diferentes.
+
+Para mockar e receber as requisições foi utilizado o Isomnia (é bastante semelhante ao Postman).
+https://insomnia.rest/download/.
+Cria um novo workspace e define no Base Environment uma "baseURL". Dessa forma não é necessário ficar digitando https://localhost:3333 toda hora.
+
+
+// Aula 2
+
+Vamos utilizar o PostgreSQL como banco de dados.
+A parte ruim de baixar o driver nativo do banco é que o código fica preso à sintaxe do driver.
+Caso seja necessário mudar de banco, é preciso reescrever boa parte do código que interage com ele.
+
+knew.js é um query builder para os diversos tipos de banco. Através dele conseguimos abstrair a Interface de cada driver.
+
+TypeORM (object relational mapping) é um cara que faz o mapeamento entre objetos. Também é adaptável em relação ao banco de dados usado (driver).
+Trabalha com classes/objetos e já mapeia isso para o banco de dados. Conseguimos evitar de trabalhar com o SQL puro, porém pode ser que às vezes seja necessário.
+
+Para ambiente de desenvolvimento utilizaremos o SQLite, pois ele acaba sendo mais leve por salvar as coisas em memória. Obviamente isso não será usado em produção.
+
+O TypeORM precisa de um arquivo de configuração (ormconfig.json).
+A propriedade "database" nesse arquivo é caminho do arquivo onde ficarão as informações sobre o BD.
+No database/index.ts criamos a conexão do banco de dados e também a importamos no src/index.ts. Ao rodar o projeto o arquivo database.sqlite será criado automaticamente.
+
+migration: como se fosse um histórico de tudo o que estamos fazendo em relação ao banco de dados.
+Permite que todas as pessoas consigam saber o que houve com cada tabela. Toda a estrutura de uma tabela fica dentro da migration.
+Toda vez que eu pegar um projeto de alguém e rodá-lo, o banco de dados vai verificar se existe uma migration nova e ele irá rodar para sincronizar todas as alterações que ele não tem ainda.
+
+Dentro do nosso projeto criamos um comando para rodar as migrations no package.json (chamamos de "typeorm"). O próprio TypeORM possui uma cli que podemos usar. Para que não precisássemos instalar de maneira global, vamos utilizar o arquivo cli.js que está na node_modules.
+
+Para criar uma migration basta fazer (yarn typeorm migration: create -n <nome da migration>).
+Também adicionamos no ormconfig.json a regra de criação das migrations (em cli.migrationsDir).
+
+Realizamos a criação da tabela de usuário através da migration CreateUsers. Nela definimos o schema da tabela.
+O método up é executado na criação da migration e o dowm é quando queremos remover a migration sendo executada.
+
+Para rodar a migration basta fazer (yarn typeorm migration:run).
+Antes disso, precisamos especificar no ormconfig.json qual é a pasta em que estão as migrations a serem rodadas (fazemos isso na propriedade "migrations").
+
+Para verificar o BD criado podemos usar uma extensão do VSCode ou o Beekeeper Studio.
+
+Para reverter a última (e apenas ela) migration executada basta rodar o comando (yarn typeorm migration:revert).
+
+Controllers: é um controlador. A ideia é que toda parte de regras de negócio que deixa o arquivo server.ts poluído vá para a pasta controllers.
+Teremos um controller para cada funcionalidade sendo desenvolvida no sistema. O server será responsável por chamar o controller.
+
+Além de criarmos os controllers também vamos dividir os serviços das rotas para ficar mais organizado ainda.
+Feito no arquivo routes.ts. Após isso, importamos no server.ts o arquivo com as rotas.
+Fazemos app.use(routes) no arquivo server.ts. Esse método é um middleware.
+
+Para que o server consiga entender o JSON precisamos usar outro middleware antes da linha app.use(routes). Isso faz com que ele olhe nas requisições de contenham content-type application/json e já realize o parse do request.body.
+
+Na pasta models criamos as nossas classes que serão mapeadas para tabelas no banco de dados pelo TypeORM.
+Para sinalizarmos que uma dada classe deve virar uma tabela, utilizamos o decorator @Entity('users').
+Precisamos habilitar o uso dos decorators no tsconfig.json.
+Descomentamos as linhas das propriedades experimentalDecorators, emitDecoratorMetadata e strictPropertyInitialization (sendo que esse último alteramos o valor para false).
+
+Podemos deixar o próprio banco gerenciar o ID ou podemos criar via código. Dependendo do banco utilizado pode ser um pouco problemático, por conta disso faremos via código. Adicionamos a dependência uuid para isso (yarn add uuid).
+
+No arquivo UserControllers.ts criamos um repositório de usuários para termos acesso a alguns métodos disponíveis no TypeORM.
+O repositório tem diversos métodos que podemos usar em cima de uma tabela em banco de dados.
+repositório: é um gerenciador de entidade. Permite que façamos algumas ações dentro do banco de dados: inserções, criação de tabela, edição de atributos etc.
+Toda comunicação com o banco será feita através de repositórios. Cada entidade terá um repositório para ela.
+
+
+// Aula 3
+
+Vamos refatorar os controllers.
+Precisamos criar um repositório para nosso usuário.
