@@ -30,7 +30,7 @@ class UserController {
     // Não dá para passar o objeto diretamente para o método .save. Precisamos usar .create antes disse e passar o retorno dele.
     await usersRepository.save(user);
 
-    return response.json(user);
+    return response.status(201).json(user);
   }
 }
 

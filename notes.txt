@@ -117,4 +117,23 @@ No arquivo de configuração do jest (jest.config.ts) colocamos bail: true, come
 Adicionamos mais um dependência de desenvolvimento para o jest. É um preset para trabalhar com TypeScript dentro dos testes (yarn add ts-jest -D).
 No arquivo de configuração do jest alteramos a linha preset para preset: 'ts-jest'.
 
-// Parei em 41:38
+Jest não é bom para fazer testes de integração, pois temos que simular um outro sistema.
+Para isso vamos usar um pacote chamado supertest (yarn add supertest @types/supertest -D).
+Ele não precisa de nenhuma configuração.
+
+Vamos separar toda a parte do app do arquivo server.ts e nesse último deixaremos apenas o instaciamento do servidor. Dessa maneira conseguimos usar o app sem precisar subir o servidor.
+
+Precisamos criar um banco de dados para fazer testes em desenvolvimento. Esse banco deve ser separado do banco de produção, pois podemos fazer caquinha nas tabelas do banco em produção caso rodemos algum teste lá.
+Para isso modificamos a chamada de createConnection no database/index.ts. Utilizaremos uma variável de ambiente para definir em qual ambiente estamos (produção/teste).
+No arquivo package.json alteramos scripts/test e inserimos a variável de ambiente "NODE_ENV=test".
+
+No arquivo database/index.ts vamos verificar se estamos em produção ou teste e, caso estejamos em produção, vamos alterar a configuração que vem por padrão do arquivo ormconfig.json a fim de apontar um outro caminho para o banco de dados.
+
+Para acessar alguma variável de ambiente dentro do node basta fazer process.env.<nome da variável>.
+
+Por fim, em app.ts importamos o arquivo database/index.ts a função que realiza a conexão com o banco.
+
+No arquivo __tests__/User.test.ts instanciamos nosso banco e rodamos as migrations antes de realizar os testes. Fazemos isso pois caso as migrations não sejam rodadas, não teremos tabelas para trabalhar.
+
+Precisamos remover o banco de dados de teste após cada teste rodado, pois caso contrário o teste de criaçao de um novo usuário dará erro (já que ele existe no banco).
+Para isso utilizamos a diretiva "posttest" nos scripts do package.json. Especificamos que iremos remover o arquivo com o banco de dados de teste.
