@@ -53,7 +53,7 @@ Para criar uma migration basta fazer (yarn typeorm migration: create -n <nome da
 Também adicionamos no ormconfig.json a regra de criação das migrations (em cli.migrationsDir).
 
 Realizamos a criação da tabela de usuário através da migration CreateUsers. Nela definimos o schema da tabela.
-O método up é executado na criação da migration e o dowm é quando queremos remover a migration sendo executada.
+O método up é executado na criação da migration e o down é quando queremos remover a migration sendo executada.
 
 Para rodar a migration basta fazer (yarn typeorm migration:run).
 Antes disso, precisamos especificar no ormconfig.json qual é a pasta em que estão as migrations a serem rodadas (fazemos isso na propriedade "migrations").
@@ -87,4 +87,34 @@ Toda comunicação com o banco será feita através de repositórios. Cada entid
 // Aula 3
 
 Vamos refatorar os controllers.
-Precisamos criar um repositório para nosso usuário.
+Precisamos criar um repositório para nosso usuário. Vamos isolar a parte de criação da tabela e interação com o banco de dentro do UserController, pois não é interessante que essa responsabilidade fique com ele.
+Atualmente isso é feito usando o método getRepository do próprio TypeORM.
+Para isso, criamos a pasta repositories.
+
+O repositório UsersRepository ficará responsável pelo acesso ao banco. Ele será uma classe que herdará (extends Repository<User>, em que <User> deve corresponder a alguma entidade que criamos anteriormente) os diversos métodos do TypeORM que usamos dentro do controller. Dessa maneira, também conseguimos realizar algumas personalizações.
+Precisamos colocar uma anotação indicando que essa classe será um repositório. Fazemos isso com @EntityRepository(User).
+
+No arquivo UserController bastou alterar a chamada de getRepository(User) para getCustomRepository(UsersRepository) que tudo volta a funcionar normalmente.
+
+alt + shift + o remove os imports não utilizados.
+
+Criamos uma tabela para guardar as pesquisas realizadas.
+Para isso, criamos também a migration para essa tabela. (yarn typeorm migration:create -n CreateSurveys).
+O nome da migration não tem uma regra específica, podemos usar o que acharmos melhor.
+Em seguida, criamos o nosso model de pesquisa em models/Survey.ts.
+Também criamos o repository dela em repositories/SurveysRepositories.ts.
+E, por fim, o controller. Nele também criamos o método show que retorna todas as surveys que estão no banco.
+
+
+> Testes
+
+Aqui no back-end faremos testes unitários e de integração. Não é feito o end to end.
+
+Utilizaremos o JEST para realizar os testes. yarn add jest -D e yarn add @types/jest -D.
+Para inicializar o arquivo de configuração do jest fazemos yarn jest --init.
+No arquivo de configuração do jest (jest.config.ts) colocamos bail: true, comentamos testEnvironment e habilitamos testMatch alterando o local onde os testes ficarão salvos.
+
+Adicionamos mais um dependência de desenvolvimento para o jest. É um preset para trabalhar com TypeScript dentro dos testes (yarn add ts-jest -D).
+No arquivo de configuração do jest alteramos a linha preset para preset: 'ts-jest'.
+
+// Parei em 41:38

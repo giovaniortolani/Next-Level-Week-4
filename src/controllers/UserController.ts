@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'; // Precisamos importar o Request e Reponse do express para usá-los na tipagem dos parâmetros de UserController.create.
-import { getRepository } from 'typeorm';
-import { User } from '../models/User';
+import { getCustomRepository } from 'typeorm';
+import { UsersRepository } from '../repositories/UsersRepository';
 
 
 class UserController {
@@ -8,7 +8,7 @@ class UserController {
     const { name, email } = request.body;
 
     // criamos um repositório de usuários para termos acesso a alguns métodos disponíveis no TypeORM
-    const usersRepository = getRepository(User);
+    const usersRepository = getCustomRepository(UsersRepository);
 
     // verificamos se já existe o usuário que queremos inserir no banco
     // SELECT * FROM USERS WHERE EMAIL = "<email>"
