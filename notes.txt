@@ -96,7 +96,7 @@ Precisamos colocar uma anotação indicando que essa classe será um repositóri
 
 No arquivo UserController bastou alterar a chamada de getRepository(User) para getCustomRepository(UsersRepository) que tudo volta a funcionar normalmente.
 
-alt + shift + o remove os imports não utilizados.
+"alt + shift + O" remove os imports não utilizados.
 
 Criamos uma tabela para guardar as pesquisas realizadas.
 Para isso, criamos também a migration para essa tabela. (yarn typeorm migration:create -n CreateSurveys).
@@ -137,3 +137,74 @@ No arquivo __tests__/User.test.ts instanciamos nosso banco e rodamos as migratio
 
 Precisamos remover o banco de dados de teste após cada teste rodado, pois caso contrário o teste de criaçao de um novo usuário dará erro (já que ele existe no banco).
 Para isso utilizamos a diretiva "posttest" nos scripts do package.json. Especificamos que iremos remover o arquivo com o banco de dados de teste.
+
+
+// Aula 4
+
+Começaremos criando uma migration para a tabela que conterá os dados dos usuários, da pesquisa e a nota que o usuário deu.
+Essa tabela conterá 2 chaves estrangeiras (id da pesquisa e id do usuário).
+É importante que a coluna value (que é o valor de resposta do usuário à pesquisa) possa ser Null (ou nullable), pois no momento da inserção da linha na tabela esse dado ainda não existe, pois o usuário não respondeu a pergunta.
+
+Precisamos falar pro banco de dados que a coluna user_id e surver_id da tabela surveys_users vêm de alguma outra tabela (chave estrangeira). Fazemos isso através da propriedade foreignKeys dentro de new Table({}).
+Também inserimos as trativas para quando as chaves estrangeiras são deletadas ou atualizadas na tabela de origem. Definimos que na tabela surveys_users as chaves estrangeiras devem sofrer cascateamento.
+
+Após a criação da migration vamos criar o model para a tabela SurveysUsers.
+Também criamos o repositório para ela.
+
+Por fim, no controller decidimos não nomeá-lo como SurveysUsersController.ts, pois esse nome não ficaria tão intuitivo já que a responsabilidade dele é enviar um email. Sendo assim, o chamamos de SendMailController.ts.
+
+No controller nós verificamos se o email do usuário e se o id da pesquisa estão presentes em suas respectivas tabelas no banco.
+Em caso negativo, retormos erro. Do contrário, procedemos com o salvamento da pesquisa na tabela SurveysUsers e enviamos o email para o usuário.
+
+Também criamos a rota (/sendmail) no arquivo routes.ts para receber as chamadas.
+
+Vamos utilizar a biblioteca Nodemailer (yarn add nodemailer) para realizar o envio de email. Como ele é um pacote que contém tipagem também aproveitamos para instalar como dependência de desenvolvimento (yarn add @types/nodemailer -D).
+Além disso, também precisamos de um SMTP Server que é quem realmente fará o envio do email para nós. Para isso utilizaremos o Ethereal https://ethereal.email/ que é um serviço falso de SMTP.
+
+Para que o SendMailController não fique inchado com a responsabilidade de enviar o email, criamos uma pasta chamada "services" que conterá o código responsável por criar, enviar e manipular o email.
+
+Precisaremos usar o transporter criado no constructor de SendMailService também em outros métodos. Para isso criamos o atributo privado client.
+
+Por fim, no método execute fazemos o envio do email.
+
+Também exportamos como "export default new SendMailService()", pois isso já cria automaticamente a instância e a retorna quando for importado em outro arquivo (em SendMailController.ts).
+
+Para fazer a customização do HTML do email usaremos o Handlebars (yarn add handlebars).
+
+Criamos a pasta src/views para armazenar tudo o que estiver relacionado à parte visual da aplicação. Nela colocaremos o template HTML do email de NPS (npsMail.hbs - .hbs é a extensão para o handlebars).
+As variáveis dentro desse arquivo são utilizadas com {{variavel aqui}}.
+
+Agora precisaremos definir de onde vêm as variáveis utilizada no arquivo do template de email. Faremos isso no SendMailService.
+Importamos o path do próprio pacote do node para ele fazer a leitura do caminho do arquivo sem precisar especificar de forma manual (através do resolve), trabalhamos apenas utilizando a estrutura de pastas do projeto.
+
+__dirname pega o caminho exato de onde está a aplicação.
+
+Usando o módulo fs do próprio node lemos o arquivo que contém o template do email.
+Em seguida, usamos handlebars.compile() para compilar o conteúdo do arquivo template em um "objeto" do handlebars.
+Por fim, passamos para esse objeto o contexto do template. Ou seja, passamos os valores das variáveis ({{variável aqui}}) utilizadas dentro do template.
+Também alteramos o argumento html de this.client.sendMail para ser a variável html contendo o template parseado, que antes era a survey.description.
+
+Para que o método execute de SendMailService seja genérico, adicionamos o parâmetro path, que deverá conter o path do template a ser utilizado.
+
+Também alteramos o método execute para receber do SendMailController as variáveis que popularão o template.
+
+Nos links do template que contém as notas a ideia é colocarmos algo do tipo: baseurl/answers/${nota}?u={id do usuário}.
+Em que u é um token para sabermos qual é o usuário que está votando.
+
+Para definir a variável {{link}} dentro do SendMailController utilizaremos uma variável de ambiente do node, pois é muito mais cômodo do que deixar hardcoded/chumbado.
+Criamos um arquivo (.env) que conterá as variáveis de ambiente na pasta raiz da aplicação.
+
+Editamos o arquivo SendMailController para ele não permitir que seja criado mais de um registro na tabela caso o usuário já esteja lá (controlado por { user_id: user.id }) e não tenha respondido a pesquisa ainda (controlado por { value: null }). Nesse caso, enviamos novamente o email para ele.
+
+> Relacionamentos entre tabelas
+A tabela surveys_users (models/SurveysUsers.ts) é chamada de tabela pivô, pois é uma tabela que possui relacionamento com outras tabelas.
+
+Vamos definir nessa tabela quais são os relacionamentos entre elas (1:1, 1:N, N:M etc.).
+Faremos isso através de annotations nas colunas. Definimos uma nova propriedade em SurveysUsers cujo nome é "user" e "survey". Para essas duas definimos as anotações ManyToOne (indica o relacionamento dessa coluna) e JoinColumn (indica qual é a coluna que ele deve referenciar).
+
+Ao realizarmos a busca usando findOne, podemos passar o atributo "relations" que indica qual é a entidade que queremos fazer a relação. Ele é um array com os nomes dessa entidades (nomes das tabelas).
+Isso faz com que a busca já traga o objeto completo encontrado nessas tabelas que especificamos o nome. Em nosso caso é o objeto do usuário e da pesquisa.
+
+
+// Aula 5
+
