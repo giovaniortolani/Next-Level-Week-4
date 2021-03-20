@@ -194,7 +194,8 @@ Em que u é um token para sabermos qual é o usuário que está votando.
 Para definir a variável {{link}} dentro do SendMailController utilizaremos uma variável de ambiente do node, pois é muito mais cômodo do que deixar hardcoded/chumbado.
 Criamos um arquivo (.env) que conterá as variáveis de ambiente na pasta raiz da aplicação.
 
-Editamos o arquivo SendMailController para ele não permitir que seja criado mais de um registro na tabela caso o usuário já esteja lá (controlado por { user_id: user.id }) e não tenha respondido a pesquisa ainda (controlado por { value: null }). Nesse caso, enviamos novamente o email para ele.
+Editamos o arquivo SendMailController para ele não permitir que seja criado mais de um registro na tabela caso o usuário já esteja lá (controlado por { user_id: user.id }) OU não tenha respondido a pesquisa ainda (controlado por { value: null }). Nesse caso, enviamos novamente o email para ele.
+<<Fizemos a correção desse OU na Aula 5>>
 
 > Relacionamentos entre tabelas
 A tabela surveys_users (models/SurveysUsers.ts) é chamada de tabela pivô, pois é uma tabela que possui relacionamento com outras tabelas.
@@ -208,3 +209,47 @@ Isso faz com que a busca já traga o objeto completo encontrado nessas tabelas q
 
 // Aula 5
 
+Começamos refatorando a busca dentro da tabela SurveysUsers em SendMailController pois o "where" fazia um OR em vez de um AND.
+Alteramos -> where: [{ user_id: user.id }, { value: null }]
+Para -> where: { user_id: user.id, survey_id: survey.id, value: null }
+
+Também precisaremos alterar o link das notas no email. Atualmente é passado como token (query u) o user_id. Entretanto, é possível que um mesmo user_id tenha diversas pesquisas atreladas a ele e por conta disso não saberíamos qual é a pesquisa em que ele votou.
+Temos 2 alternativas: usar tanto o user_id e o surver_id como query; usar o surverUser. Optamos pelo segundo pois é mais sucinto.
+
+Vamos agora criar o controller que tratará da resposta do usuário.
+Chamamos de AnswerController.ts.
+No arquivo de rotas para esse controller extraíremos a nota e o surveyUserId da própria URL de chamada. O primeiro é o route param e o segundo é um query param.
+Tudo isso será processado pelo método execute.
+
+Em seguida, vamos para a criação do controller que irá tratar do cálculo do NPS.
+Fizemos isso no NpsController.
+
+A lógica do NPS é a seguinte:
+  - Notas de 0 a 10
+  - Detratores: 0 - 6
+  - Passivos: 7 - 8
+  - Promotores: 9 - 10
+Os Passivos são excluídos da conta, eles não importam. Só fazemos o cálculo com Detratores e Promotores.
+Fórmula: (nº de promotores - º de detratores) / (nº de correspondentes - aqui entra os passivos também) x 100
+
+Na busca pelas entradas no banco relativas a uma survey precisamos utilizar value: Not(IsNull()) para que não sejam trazidas linhas que ainda não tiveram resposta do usuário.
+Esses métodos Not() e IsNull() são do próprio TypeORM.
+
+Para finalizar, vamos implementar algumas validações simples na aplicação usando a biblioteca yup (yarn add yup). Site: https://github.com/jquense/yup.
+Basicamente validamos se o que é recebido pelas requests está no formato esperado ou possui o dado esperado.
+Fizemos essas validações em no model User.
+
+Removemos a diretiva "posttest" do package.json pois ela roda apenas em Unix e é necessário que consigamos rodar a aplicação numa gama maior de sistemas.
+Nos testes inserimos a diretiva afterAll(), na qual dropamos a base de dados usando os métodos do próprio TypeORM.
+
+Para não dar conflito na hora de realizar os testes por conta de termos feito essa alteração precisamos colocar a flag -i na diretiva "test" do package.json. A flag faz com que os testes rodem de maneira serial (e não de maneira paralela como é o comum).
+Isso foi necessário para não dar conflito na hora de criar as migrations e tudo mais relacionado ao banco.
+
+Também vamos melhorar a forma como os controllers retornam os erros. Faremos isso através o arquivo src/errors/AppError.ts.
+Criaremos erros customizados e quem ficará responsável por retornar os erros será o app.ts
+A ideia é que em todo ponto de código onde retornamos o status 400, nós lançemos uma exceção (throw new AppError).
+Essa exceção vai subindo até chegar em alguém (algum código) que realize o tratamento delas.
+Para tratar a exceção no app.ts utilizaremos um middleware (middleware é tudo aquilo que está no meio do caminho entre a requisição e a resposta).
+Lá verificamos se o erro é uma instância de AppError. Em caso afirmativo, tratamos a resposta do jeito que já estávamos fazendo (status 400 e mensagem de erro). Caso contrário, provavelmente é um erro de servidor e retornamos um status 500 com a mensagem.
+
+Para tudo isso funcionar é necessário instalar a biblioteca express-async-errors (yarn add express-async-errors) e importá-la logo abaixo do express no app.ts
